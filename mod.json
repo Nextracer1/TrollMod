@@ -1,0 +1,17 @@
+{
+    "Name": "Nextracer1.TrollMod",
+    "Description": "trole",
+    "Version": "1.0.0",
+    "LoadPriority": 1,
+
+    "ConVars": [
+        {
+            "Name": "troll_difficulty",
+            "DefaultValue": "1"
+        }
+    ],
+
+    "Localisation": [
+            "resource/trollmod_localisation_english.txt"
+    ]
+ }
