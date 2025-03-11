@@ -59,23 +59,23 @@ void function SpInitLoadouts()
 	{
 
 		case "sp_crashsite": //wilds
-			SetDefaultWeapons_SoldierAntiTitan( 	"mp_weapon_rocket_launcher" )
-			SetDefaultWeapons_SoldierPistol( 		"mp_weapon_semipistol" )
-			SetDefaultWeapons_SoldierRifle( 		"mp_weapon_rspn101" )
-			SetDefaultWeapons_SoldierRifle( 		"mp_weapon_hemlok", [ 			"hcog" ] )
-			SetDefaultWeapons_SoldierShotgun( 		"mp_weapon_shotgun" )
-			SetDefaultWeapons_SoldierSmg( 			"mp_weapon_car" )
-			SetDefaultWeapons_SoldierSniper( 		"mp_weapon_dmr" )
+			SetDefaultWeapons_SoldierAntiTitan( 	"mp_titanweapon_sticky_40mm" )
+			SetDefaultWeapons_SoldierPistol( 		"mp_titanweapon_leadwall" )
+			SetDefaultWeapons_SoldierRifle( 		"mp_titanweapon_meteor" )
+			SetDefaultWeapons_SoldierRifle( 		"mp_titanweapon_particle_accelerator" )
+			SetDefaultWeapons_SoldierShotgun( 		"mp_titanweapon_leadwall" )
+			SetDefaultWeapons_SoldierSmg( 			"mp_titanweapon_particle_accelerator" )
+			SetDefaultWeapons_SoldierSniper( 		"mp_titanweapon_sniper" )
 
-			SetDefaultWeapons_Spectre( 				"mp_weapon_rspn101" )
-			SetDefaultWeapons_SpectreAntiTitan( 	"mp_weapon_smr" )
-			SetDefaultWeapons_SpectrePistol( 		"mp_weapon_semipistol" )
-			SetDefaultWeapons_SpectreRifle( 		"mp_weapon_rspn101", [ 			"hcog" ] )
-			SetDefaultWeapons_SpectreRifle( 		"mp_weapon_rspn101", [ 			"hcog" ] )	// dupe to increase usage
-			SetDefaultWeapons_SpectreRifle( 		"mp_weapon_hemlok_smg", [ 		"holosight" ] )
-			SetDefaultWeapons_SpectreShotgun( 		"mp_weapon_shotgun" )
-			SetDefaultWeapons_SpectreSmg( 			"mp_weapon_car" )
-			SetDefaultWeapons_SpectreSniper( 		"mp_weapon_dmr" )
+			SetDefaultWeapons_Spectre( 				"mp_titanweapon_particle_accelerator" )
+			SetDefaultWeapons_SpectreAntiTitan( 	"mp_titanweapon_sticky_40mm" )
+			SetDefaultWeapons_SpectrePistol( 		"mp_titanweapon_leadwall" )
+			SetDefaultWeapons_SpectreRifle( 		"mp_titanweapon_sniper" )
+			SetDefaultWeapons_SpectreRifle( 		"mp_titanweapon_leadwall" )	// dupe to increase usage
+			SetDefaultWeapons_SpectreRifle( 		"mp_titanweapon_sniper" )
+			SetDefaultWeapons_SpectreShotgun( 		"mp_titanweapon_leadwall" )
+			SetDefaultWeapons_SpectreSmg( 			"mp_titanweapon_particle_accelerator" )
+			SetDefaultWeapons_SpectreSniper( 		"mp_titanweapon_sniper" )
 			break
 
 		case "sp_sewers1":

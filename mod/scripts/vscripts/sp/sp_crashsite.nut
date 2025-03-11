@@ -253,6 +253,8 @@ void function CodeCallback_MapInit()
 	FlagInit( "spawn_final_enemies" )
 	FlagInit( "final_fight_won" )
 
+	FlagInit( "lastimosa_killed" )
+
 	// signals
 
 	RegisterSignal( "intro_over" )
@@ -438,6 +440,7 @@ void function CodeCallback_MapInit()
 
 void function EntitiesDidLoad()
 {
+	SetConVarInt( "sp_difficulty", 2 )
 	SetConVarFloat( "mat_sky_scale", 1.0 )    // sewers sets this differently for rainbow sky, so need to reset on every other level load
 
 	printt( "EntitiesDidLoad", Time() )
@@ -571,12 +574,37 @@ void function StartPoint_LevelStart( entity player )
 	DisableDVSOverride( player )
 	#endif
 
+	// _sp_loadouts doesn't cover all the guys
+	GiveGruntsTitanWeapons()
+
+
 	FlagWait( "start_intro_combat" )
 	Objective_Set( "#WILDS_OBJECTIVE_NIGHTTIME", GetEntByScriptName( "nighttime_objective_loc" ).GetOrigin() )
 	SetPlayerForcedDialogueOnly( player, false )
 
 	FlagWait( "bt_intro_start" )
 }
+
+
+void function GiveGruntsTitanWeapons()
+{
+	array<entity> chaps = GetEveryone()
+	array<string> titanWeapons = [ "mp_titanweapon_leadwall", "mp_titanweapon_sniper", "mp_titanweapon_meteor", "mp_titanweapon_particle_accelerator" ]
+
+	foreach( entity bloke in chaps )
+	{
+		if ( IsAlive( bloke ) && IsValid( bloke ) )
+		{
+			foreach ( entity weapon in bloke.GetMainWeapons() )
+			{
+				bloke.TakeWeaponNow( weapon.GetWeaponClassName() )
+			}
+
+			bloke.GiveWeapon( titanWeapons[ RandomInt( titanWeapons.len() ) ] )
+		}
+	}
+}
+
 
 void function StartPoint_Skip_LevelStart( entity player )
 {
@@ -2419,7 +2447,7 @@ void function BTShootsPlayer( entity player )
 {
 	player.EndSignal( "OnDestroy" )
 
-	wait 23    // roughly
+	wait 22    // roughly
 	player.SetHealth(1);
 
 	/*
@@ -2559,7 +2587,7 @@ void function FieldPromotion_Obj( entity player )
 	FlagWait( "og_pilot_exited" )
 
 	Objective_Set( "#WILDS_OBJECTIVE_FIELD_PROMOTION", file.ogPilot.GetOrigin() + <0,0,16>)
-	FlagWait( "og_final_words" )
+	FlagWait( "lastimosa_killed" )
 
 	Objective_Clear()
 }
@@ -2568,13 +2596,17 @@ void function FieldPromotion_Promotion_Player( entity player )
 {
 	player.EndSignal( "OnDestroy" )
 
-	if ( ogWeaponModel != null && IsValid( ogWeaponModel ) ) ogWeaponModel.Destroy()
+	if ( ogWeaponModel != null && IsValid( ogWeaponModel ) ) 
+	{
+		ogWeaponModel.Destroy()
+	}
 
 	FlagWaitWithTimeout( "player_near_bt", 10 )
 	FlagSet( "bt_expels_og" )
 
-	FlagWait( "og_final_words" )
+	FlagWait( "lastimosa_killed" )
 
+	/*
 	entity scriptRef = GetEntByScriptName( "anim_ref_BT_hurt" )
 	entity animRef = CreateOwnedScriptMover( scriptRef )
 
@@ -2594,7 +2626,6 @@ void function FieldPromotion_Promotion_Player( entity player )
 	player.SetAnimNearZ(1)
 	Remote_CallFunction_Replay( player, "ServerCallback_FieldPromotionShadows", true )
 
-
 	ClientCommand( player, "give weapon_semipistol" )
 	ClientCommand( player, "thirdperson" )
 	waitthread FirstPersonSequence( ogFinalWordsSequence, player, animRef )
@@ -2602,14 +2633,44 @@ void function FieldPromotion_Promotion_Player( entity player )
 
 	Remote_CallFunction_Replay( player, "ServerCallback_FieldPromotionShadows", false )
 	player.ClearAnimNearZ()
+	*/
 
 	FlagSet( "promoted" )
 
 	player.ClearParent()
 	ClearPlayerAnimViewEntity( player )
 
-	animRef.Destroy()
+	//animRef.Destroy()
 }
+
+
+void function KillLastimosaThink( entity og, entity player )
+{
+	#if SERVER
+	foreach ( entity weapon in player.GetMainWeapons() )
+	{
+		player.TakeWeaponNow( weapon.GetWeaponClassName() )
+	}
+	
+	player.GiveWeapon( "mp_titanweapon_flightcore_rockets" )
+	#endif
+
+	og.ClearInvulnerable()
+	SetTeam( og, TEAM_IMC )
+
+
+	while ( true )
+	{
+		if ( !IsAlive( og ) )
+		{
+			FlagSet( "lastimosa_killed" )
+			break
+		}
+
+		wait 0.1
+	}
+}
+
 
 void function FieldPromotion_Promotion_OGPilot( entity player )
 {
@@ -2632,18 +2693,31 @@ void function FieldPromotion_Promotion_OGPilot( entity player )
 
 	thread PlayAnimTeleport( ogPilot, "OG_wilds_OG_final_words_idle", scriptRef )
 
+	/*
 	entity useDummy = CreateUseDummy( ogPilot, "CHESTFOCUS",  <16,0,0>, "#WILDS_OG_PILOT_PROMPT_HOLD" , "#WILDS_OG_PILOT_PROMPT_HOLD" )
 	useDummy.WaitSignal( "OnPlayerUse" )
 	useDummy.Destroy()
+	*/
+
+	thread KillLastimosaThink( ogPilot, player )
+	FlagWait( "lastimosa_killed" )
 
 	Objective_Clear()
 
-	FlagSet( "og_final_words" )
+	//FlagSet( "og_final_words" )
 
 	wait 5.0
 	//waitthread PlayAnimTeleport( ogPilot, "OG_wilds_OG_final_words", scriptRef )
 
-	ogPilot.Destroy()
+	// take back the flightcore rockets
+	#if SERVER
+	foreach ( entity weapon in player.GetMainWeapons() )
+	{
+		player.TakeWeaponNow( weapon.GetClassName() )
+	}
+	#endif
+
+	//ogPilot.Destroy()
 	file.ogPilot = null
 }
 
@@ -2682,7 +2756,7 @@ void function FieldPromotion_Promotion_BuddyTitan( entity player )
 	// need to the new anim work
 	waitthread PlayAnim( buddyTitan, "BT_wilds_1st_battery_fall", scriptRef )
 	thread PlayAnim( buddyTitan, "BT_wilds_OG_final_words", scriptRef )
-	FlagWait( "og_final_words" )
+	FlagWait( "lastimosa_killed" )
 	FlagWait( "promoted" )
 
 	// this is the correct looping anim
@@ -2732,6 +2806,7 @@ void function StartPoint_Grave( entity player )
 	SyncedMelee_Enable( player )
 
 	FlagSet( "give_wallrun" )
+
 
 	CreateBTStaticCollision( BT_IDLE_COLLISION_2 )
 
@@ -2789,8 +2864,8 @@ void function Grave_DonHelmet( entity player )
 	helmetBootSequence.attachment = "ref"
 	helmetBootSequence.blendTime = 0
 	helmetBootSequence.teleport = true
-	helmetBootSequence.firstPersonAnim = "ptpov_timeshift_device_equip_sequence"
-	helmetBootSequence.thirdPersonAnim = "pt_timeshift_device_equip_sequence" 
+	helmetBootSequence.firstPersonAnim = "ptpov_OG_grave"
+	helmetBootSequence.thirdPersonAnim = "pt_OG_grave"	 
 	helmetBootSequence.viewConeFunction = GraveViewCone
 
 	player.SetAnimNearZ(1)
@@ -5542,6 +5617,10 @@ void function PilotLink_Dialog( entity player )
 	// Our orders are to resume Special Operation #217 - Rendezvous with Major Anderson of the SRS.
 	waitthread PlayBTDialogue( "diag_sp_pilotLink_WD141_46_01_mcor_bt" )
 
+
+	// otherwise the titan weapons are way too broken
+	SetConVarInt( "sp_difficulty", 0 )
+
 	wait 1.0	// need to be timed so that it feels ok.
 
 	StopMusicTrack( "music_wilds_16d_embark" )
@@ -5586,6 +5665,7 @@ void function PilotLink_Dialog( entity player )
 	wait 3
 
 	// Pilot, enemy Titanfall detected..
+	SetConVarInt( "sp_difficulty", 2 )
 	waitthread PlayBTDialogue( "diag_sp_pilotLink_WD143a_07_01_mcor_bt" )
 	// We will have to fight our way to safety. Get ready
 	waitthread PlayBTDialogue( "diag_sp_pilotLink_WD143b_07_01_mcor_bt" )

@@ -4,6 +4,13 @@
     "Version": "1.0.0",
     "LoadPriority": 1,
 
+    "Scripts": [
+        {
+            "Path": "troll_util.nut",
+            "RunOn": "( CLIENT || SERVER ) && SP"
+        }
+    ],
+
     "ConVars": [
         {
             "Name": "troll_difficulty",

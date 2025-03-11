@@ -211,9 +211,9 @@ void function ServerCallback_LevelIntroText()
 	BeginIntroSequence()
 	var infoText = RuiCreate( $"ui/sp_level_title.rpak", clGlobal.topoFullScreen, RUI_DRAW_HUD, RUI_SORT_SCREENFADE + 100 )
 	RuiSetGameTime( infoText, "startTime", Time() )
-	RuiSetString( infoText, "txtLine1", "F R E A K T - 7 2 7 4" )
-	RuiSetString( infoText, "txtLine2", "dangerous ahh planet" )
-	RuiSetString( infoText, "txtLine3", "Rifleman Freak Cooper (SFS)" )
+	RuiSetString( infoText, "txtLine1", "L O N G  A H H  C U T S C E N E" )
+	RuiSetString( infoText, "txtLine2", "" )
+	RuiSetString( infoText, "txtLine3", "" )
 }
 
 void function ServerCallback_ShowBatteryIcon( bool state )

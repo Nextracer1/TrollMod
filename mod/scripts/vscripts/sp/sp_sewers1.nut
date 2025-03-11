@@ -68,13 +68,14 @@ const array<vector> P1_BLOCK_RESET_POINTS = [
 
 // not always active
 const vector P1_REPEL_POINT_BACKTRACK = <12395.86, 5746.42, 764.33> 
-const vector P1_REPEL_RESET_POINT_BACKTRACK = <0, 0, 0> // unused
+const vector P1_REPEL_RESET_POINT_BACKTRACK = <13064.61, 5721.71, 780.03>
+const vector P1_REPEL_RESET_POINT_BACKTRACK_OUTSIDE = <11982.17, 5742.14, 404.03>
 
 const vector P1_REPEL_GOAL_POINT = <10603.76, 6805.07, 1021.46>
 const vector P1_REPEL_GOAL_RESET_POINT = <10615.06, 6609.14, 1015.90>
 /////////////////////////
 
-global bool backtrackBlockerExists = false // this probably should not be here, but i'm lazy
+global bool backtrackBlockerExists = false // this probably should not be here
 
 
 
@@ -102,6 +103,8 @@ global struct EntityLevelStruct
 
 void function CodeCallback_MapInit()
 {
+	SetConVarInt( "sp_difficulty", 3 )
+
 	ShSpSewersCommonInit()
 	PrecacheModel( KANE_MODEL )
 	PrecacheModel( KANE_TITAN_MODEL_HD )
@@ -770,21 +773,13 @@ void function CreatePuzzle1Blockers()
 	foreach ( blockPoint in P1_BLOCK_POINTS_FORWARD )
 	{
 		entity blocker = CreatePropDynamic( P1_BLOCKER_MODEL, blockPoint, <0, -90, 0>, SOLID_BBOX )
-		//entity collision = CreatePropDynamic( P1_BLOCKER_HIDDEN_COLLISION, blockPoint, <0, 0, 0>, SOLID_BBOX )
-
 		blocker.kv.modelscale = 10
-		//collision.kv.modelscale = 10
-		//collision.Hide()
 	}
 
 	foreach ( blockPoint in P1_BLOCK_POINTS_RIGHT )
 	{
 		entity blocker = CreatePropDynamic( P1_BLOCKER_MODEL, blockPoint, <0, 180, 0>, SOLID_BBOX )
-		//entity collision = CreatePropDynamic( P1_BLOCKER_HIDDEN_COLLISION, blockPoint, <0, 0, 0>, SOLID_BBOX )
-
 		blocker.kv.modelscale = 10
-		//collision.kv.modelscale = 10
-		//collision.Hide()
 	}
 	#endif
 }
@@ -795,25 +790,23 @@ void function TryCreatePuzzle1BacktrackBlocker( bool doIt = true )
 	if ( doIt )
 	{
 		entity blocker = CreatePropDynamic( P1_BLOCKER_MODEL, Vector( P1_REPEL_POINT_BACKTRACK.x, P1_REPEL_POINT_BACKTRACK.y, P1_REPEL_POINT_BACKTRACK.z - 250 ), <0, 180, 0>, SOLID_BBOX )
-		//entity collision = CreatePropDynamic( P1_BLOCKER_HIDDEN_COLLISION, P1_REPEL_POINT_BACKTRACK, <0, 0, 0>, SOLID_BBOX )
-
 		blocker.kv.modelscale = 10
-		//collision.kv.modelscale = 10
-		//collision.Hide()
-
+		
 		backtrackBlockerExists = true
 	}
 }
 
 
-void function Puzzle1Think( entity player ) 
+void function Puzzle1Think( entity player ) // i should never be allowed to write code ever again.
 {
-	EnableDemigod( player )
+	//EnableDemigod( player )
 	player.EndSignal( "OnDestroy" )
 
 	vector currentRepelPoint = P1_REPEL_GOAL_POINT
 	bool foundKey = false
 	//bool justDeflected = false
+	bool isInEnemyArea = false
+	bool spawnedEnemies = false
 
 
 	while ( true )
@@ -826,17 +819,18 @@ void function Puzzle1Think( entity player )
 			TryCreatePuzzle1BacktrackBlocker( foundKey && !backtrackBlockerExists )
 
 			vector org = player.GetOrigin()
+			isInEnemyArea = ( org.x > P1_BLOCK_POINTS_RIGHT[0].x || org.y > P1_BLOCK_POINTS_FORWARD[0].y + 10 )
+
 
 			//////// HOPEFULLY TEMP SOLUTION FOR BLOCKERS ////////
 			foreach ( blockPoint in P1_BLOCK_POINTS_RIGHT )
 			{
 				vector orgNoZ = Vector( org.x, org.y, blockPoint.z ) // hack: blockpoint has way too much height to really work with Distance(), so disregard z axis
 
-				if ( Distance( orgNoZ, blockPoint ) < 200 )
+				if ( Distance( orgNoZ, blockPoint ) < 320 )
 				{
-					// too much geo around to offset position, too little thread wait to offset velocity :[
-					player.SetVelocity( <0, 0, 0> )
-					player.SetOrigin( <11780.27, 6537.16, 497.84> )
+					// <11780.27, 6537.16, 497.84> 
+					player.SetVelocity( isInEnemyArea ? <1000, 0, 0> : Vector( -1000, 0, 0 ) )
 				}
 			}
 
@@ -844,10 +838,9 @@ void function Puzzle1Think( entity player )
 			{
 				vector orgNoZ = Vector( org.x, org.y, blockPoint.z ) // ^^
 
-				if ( Distance( orgNoZ, blockPoint ) < 250 )
+				if ( Distance( orgNoZ, blockPoint ) < 320 )
 				{
-					player.SetVelocity( <0, 0, 0> )
-					player.SetOrigin( <11780.27, 6537.16, 497.84> )
+					player.SetVelocity( isInEnemyArea ? <0, 1000, 0> : <0, -1000, 0> )
 				}
 			}
 			//////////////////////////////////////////////////////
@@ -857,11 +850,12 @@ void function Puzzle1Think( entity player )
 			// repel the current main no-no zone
 			vector orgNoZ = Vector( org.x, org.y, ( currentRepelPoint == P1_REPEL_GOAL_POINT ? org.z : currentRepelPoint.z ) ) // ^
 
-			if ( Distance( orgNoZ, currentRepelPoint ) < 250 )
+			if ( Distance( orgNoZ, currentRepelPoint ) < ( currentRepelPoint == P1_REPEL_GOAL_POINT ? 150 : 300 ) )
 			{
 				player.SetVelocity( <0, 0, 0> )
-				player.SetOrigin( currentRepelPoint == P1_REPEL_GOAL_RESET_POINT 
-					? P1_REPEL_GOAL_RESET_POINT : Vector( org.x - 100, org.y - 100, org.z ) )
+
+				player.SetOrigin( currentRepelPoint == P1_REPEL_GOAL_POINT  ?
+					P1_REPEL_GOAL_RESET_POINT : ( isInEnemyArea ? P1_REPEL_RESET_POINT_BACKTRACK : P1_REPEL_RESET_POINT_BACKTRACK_OUTSIDE ) )  // jesus fucking christ
 
 
 				#if SERVER
@@ -872,8 +866,98 @@ void function Puzzle1Think( entity player )
 		}
 
 
+
+
+		// spawn key path enemies
+		if ( !spawnedEnemies && isInEnemyArea )
+		{
+			// otherwise he helps too much
+			entity bt = player.GetPetTitan()
+
+			if ( IsValid( bt ) )
+				bt.Freeze()
+				Embark_Disallow( player )
+
+
+
+			wait 1.0    // natural enemies seem to need time to spawn first
+			//SetConVarInt( "sp_difficulty", 3 )
+
+			// make this harder on speedrunner since they can already go fast enough
+			int diff = GetConVarInt( "troll_difficulty" )
+			thread SpawnP1Waves( player, 7.0, ( diff == 2 ? 10 : 5 ), 524287, 3 )
+
+			spawnedEnemies = true
+		}
+
+
 		wait 0.1 
 	}
+}
+
+
+entity function SpawnP1Enemy( string className, vector position, float scale = 3.0, float health = 524287.0 )
+{
+	entity bloke = CreateEntity( className )
+
+	bloke.SetOrigin( position )
+
+	SetTeam( bloke, TEAM_IMC )
+
+	bloke.SetMaxHealth( health )
+	bloke.SetHealth( health )
+
+	bloke.kv.modelscale = scale
+
+	return bloke
+}
+
+
+void function SpawnP1Waves( entity player, float timer, int amountPerWave, float health, float modelScale )
+{
+	#if SERVER
+	array<string> potentialBluds = [ "npc_soldier" ]//, "npc_spectre", "npc_stalker" ]
+	int amountOfEnts = 0
+
+	#if SERVER
+	SendHudMessage( player, "They're multiplying!", -1, 1, 255, 0, 0, 255, 0.0, 5, 2 ) 
+	#endif
+
+
+	while ( GetConVarInt( "sp_difficulty" ) == 3 )    // HACK prob is a better way of tracking when the puzzle is done
+	{
+		array<entity> lads = GetEveryone()
+
+		foreach ( entity chap in lads )
+		{
+			amountOfEnts += lads.len()
+
+
+			if ( !chap.IsTitan() )
+			{
+				// apply attribs to naturally spawned enemies
+				chap.SetMaxHealth( health )
+				chap.SetHealth( health )
+				chap.kv.modelscale = modelScale
+				AssaultEntity( chap, player )
+
+
+				// and multiply them
+				for ( int i = 0; i < amountPerWave; i++ )
+				{
+					if ( amountOfEnts + amountPerWave < 60 )
+					{
+						entity bloke = SpawnP1Enemy( potentialBluds[RandomInt( potentialBluds.len() )], Vector( RandomFloat( 100 ), ( RandomFloat( 100 ), 0 ) ) )
+						AssaultEntity( bloke, player )
+					}
+				}
+			}
+		}
+
+
+		wait timer
+	}
+	#endif
 }
 
 
@@ -883,6 +967,10 @@ void function SewerSplit_GateThink( entity player )
 	player.EndSignal( "OnDestroy" )
 
 	FlagWait( "SewerSplit_OpenGate_Start" )
+
+	// cleanup from p1
+	SetConVarInt( "sp_difficulty", 2 )
+	Embark_Allow( player )
 
 	entity bt = player.GetPetTitan()
 	if ( IsValid( bt ) )
@@ -916,7 +1004,7 @@ void function SewerSplit_GateThink( entity player )
 	wait 1.0
 	PlayDialogue( "PA_TOXIC_FUMES", button )
 	PlayDialogue( "PA_AIRLOCK_ENGAGED", button )
-	wait 0.5
+	wait 2.5
 
 	FlagSet( "SewerSplit_OpenControlRoomDoor" )
 
@@ -1073,7 +1161,7 @@ void function SewerSplit_BTThink( entity player )
 	if ( IsValid( titan ) )
 	{
 		titan.EndSignal( "OnDestroy" )
-		AssaultEntity( titan, moveTarget )
+		//AssaultEntity( titan, moveTarget )
 		titan.SetNPCPriorityOverride_NoThreat()	// Only select soldiers should bother with BT, everyone else should ignore him
 	}
 
@@ -1089,7 +1177,8 @@ void function SewerSplit_BTThink( entity player )
 				continue
 
 			if( grunt.GetClassName() == "npc_soldier" )
-				grunt.LockEnemy( titan )
+				SpawnP1Enemy( "npc_soldier", grunt.GetOrigin() + Vector( RandomFloat( 350 ), RandomFloat( 350 ), 0 ) )
+				//grunt.LockEnemy( titan )
 		}
 	}
 
