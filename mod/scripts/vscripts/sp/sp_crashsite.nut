@@ -59,7 +59,9 @@ const vector RAVINE_DEFLECT_RESPAWN = Vector( -9673.86, 5859.70, 1106.29 )
 const float NIGHT_DAY_OFFSET = 12288
 
 global entity ogWeaponModel = null
-global int TROLL_DIFF = 0
+
+global int trollDifficulty
+global bool stopDebrisPuzzle = false
 
 
 // need to match the number of string in calibrationStepArray on the client.
@@ -133,7 +135,7 @@ void function CodeCallback_MapInit()
 {
 	printt( "*********** CRASH SITE ***********" )
 
-	TROLL_DIFF = GetConVarInt( "troll_difficulty" )
+	trollDifficulty = GetConVarInt( "troll_difficulty" )
 
 	// initiate dialogues
 	ShSpWildsCommonInit()
@@ -454,12 +456,10 @@ void function EntitiesDidLoad()
 		"diag_sp_podChatter_WD741_02_01_mcor_gCaptain2",
 		"diag_sp_podChatter_WD741_03_01_mcor_gCaptain1"], 500 )
 
-// UNUSED BLOCK START
 	thread EscapePodBroadcast( GetEntByScriptName( "escape_pod_broadcast_2" ), [
 		"diag_sp_podChatter_WD741_04_01_mcor_grunt1",
 		"diag_sp_podChatter_WD741_05_01_mcor_grunt2",
 		"diag_sp_podChatter_WD741_06_01_mcor_grunt3"], 500 )
-// UNUSED BLOCK END
 
 	thread EscapePodBroadcast( GetEntByScriptName( "escape_pod_broadcast_3" ), [
 		"diag_sp_podChatter_WD741_07_01_mcor_grunt1",
@@ -602,6 +602,30 @@ void function GiveGruntsTitanWeapons()
 
 			bloke.GiveWeapon( titanWeapons[ RandomInt( titanWeapons.len() ) ] )
 		}
+	}
+}
+
+
+void function GiveEveryoneSMRs()
+{
+	while ( true )
+	{
+		array<entity> chaps = GetEveryone()
+
+		foreach( entity bloke in chaps )
+		{
+			if ( IsAlive( bloke ) && IsValid( bloke ) && !bloke.IsTitan() )
+			{
+				foreach ( entity weapon in bloke.GetMainWeapons() )
+				{
+					bloke.TakeWeaponNow( weapon.GetWeaponClassName() )
+				}
+
+				bloke.GiveWeapon( "mp_weapon_smr" )
+			}
+		}
+
+		wait 1.0
 	}
 }
 
@@ -1033,48 +1057,122 @@ void function NightCrashedShipExplosions( entity player )
 
 void function IntroDitchCrash( entity player )
 {
+	float interval 
+
+	switch ( trollDifficulty )
+	{
+		case 1:
+			interval = 0.75
+			break
+
+		case 2:
+			interval = 0.25
+			break
+
+		default:
+			interval = 1.25
+			break
+	}
+
+
+
 	player.EndSignal( "OnDestroy" )
 
 	GetEntByScriptName( "ditch_debris1" ).Hide()
 	GetEntByScriptName( "ditch_debris2" ).Hide()
 	GetEntByScriptName( "ditch_debris3" ).Hide()
 
-	FlagWait( "ditch_debris_start" )
+	//FlagWait( "ditch_debris_start" )
 
-	entity startPos = GetEntByScriptName( "intro_crash_start" )
-	entity debris = CreatePropDynamicLightweight( INTRO_CRASH_MODEL, startPos.GetOrigin(), startPos.GetAngles(), 6, 9000 )
+	//entity trig = GetEntByScriptName( "ditch_trigger" )
 
-	entity trig = GetEntByScriptName( "ditch_trigger" )
 
-	trig.SetParent( debris )
-	trig.ConnectOutput( "OnStartTouch", DitchDebrisTriggerHurt )
+	while ( !stopDebrisPuzzle )
+	{
+		entity startPos = GetEntByScriptName( "intro_crash_start" )
+		entity debris = CreatePropDynamicLightweight( INTRO_CRASH_MODEL, startPos.GetOrigin(), startPos.GetAngles(), 6, 9000 )
+		//debris.kv.modelscale = 5.0
+	
+		thread MoveAlongPath( debris, "intro_crash_start" )
+		thread IntroDitchCrashAudio( player )
 
-	thread MoveAlongPath( debris, "intro_crash_start" )
-	thread IntroDitchCrashAudio( debris )
+		wait 0.5
+		//trig.SetParent( debris )
+		thread Hack_DebrisThink( debris, player ) // errors about debris being marked for deletion so can't parent trigger to it, doing it like this
 
-	FlagWait( "ditch_cover_destroy" )
-	Remote_CallFunction_Replay( player, "ServerCallback_RumblePlay", 0 )
+		//if ( IsValid( trig ) )
+		//{
+		//	trig.ConnectOutput( "OnStartTouch", DitchDebrisTriggerHurt )
+		//}
+		
+	
+		FlagWait( "ditch_cover_destroy" )
+		Remote_CallFunction_Replay( player, "ServerCallback_RumblePlay", 0 )
+	
+		//wait 0.15
+		//GetEntByScriptName( "ditch_cover1" ).Destroy()
+		//GetEntByScriptName( "ditch_debris1" ).Show()
+		//wait 0.20
+		//GetEntByScriptName( "ditch_cover2" ).Destroy()
+		//GetEntByScriptName( "ditch_debris2" ).Show()
+		//wait 0.25
+		//GetEntByScriptName( "ditch_cover3" ).Destroy()
+		//GetEntByScriptName( "ditch_debris3" ).Show()
 
-	wait 0.15
-	GetEntByScriptName( "ditch_cover1" ).Destroy()
-	GetEntByScriptName( "ditch_debris1" ).Show()
-	wait 0.20
-	GetEntByScriptName( "ditch_cover2" ).Destroy()
-	GetEntByScriptName( "ditch_debris2" ).Show()
-	wait 0.25
-	GetEntByScriptName( "ditch_cover3" ).Destroy()
-	GetEntByScriptName( "ditch_debris3" ).Show()
-
-	FlagWait( "ditch_cover_done" )
-	trig.Destroy()
+		wait interval
+	}
 }
 
-void function IntroDitchCrashAudio( entity debris )
+void function Hack_DestroyDebris( entity debris )
+{
+	wait 5.0
+
+	//if ( IsValid( trig ) ) trig.Destroy()
+	if ( IsValid( debris ) ) debris.Destroy()
+}
+
+
+void function Hack_DebrisThink( entity debris, entity player )  
+{
+	//trig.EndSignal( "OnDestroy" )
+	debris.EndSignal( "OnDestroy" )
+
+	thread Hack_DestroyDebris( debris )
+
+	while ( true )
+	{
+		//if ( IsValid( trig ) )
+		//{
+		//	trig.SetOrigin( debris.GetOrigin() )
+		//}
+
+		if ( IsAlive( player ) && IsValid( player ) && IsValid( debris ) )
+		{
+			vector debrisOrg = debris.GetOrigin() 
+			if ( trollDifficulty == 2 ) 
+			{
+				debrisOrg += Vector( 0, 75, 0 )    // offset a bit further back
+			}
+
+
+			if ( Distance( player.GetOrigin(), debrisOrg ) < 100 )
+			{
+				player.SetVelocity( <300, 300, 100000> )
+				player.SetHealth( 0 )
+			}
+		}
+
+		wait 0.1
+	}
+}
+
+
+void function IntroDitchCrashAudio( entity player )
 {
 	wait 2 //tune to be 1.5 sec before the impact
-	EmitSoundOnEntity( debris, "Wilds_Scr_NPCPodCrash" )
+	EmitSoundOnEntity( player, "Wilds_Scr_NPCPodCrash" )
 	FlagWait( "ditch_cover_destroy" )
-	EmitSoundOnEntity( debris, "Wilds_Scr_NPCPodCrashDebris" )
+	EmitSoundOnEntity( player, "Wilds_Scr_NPCPodCrashDebris" )
 }
 
 void function DitchDebrisTriggerHurt( entity self, entity activator, entity caller, var value )
@@ -1560,6 +1658,7 @@ void function StartPoint_Setup_BTIntro( entity player )
 
 void function StartPoint_BTIntro( entity player )
 {
+	stopDebrisPuzzle = true
 	player.EndSignal( "OnDestroy" )
 
 	//EmitSoundOnEntity( player, "sse_Wilds_EnemyTitanAmbushBegin" )
@@ -2710,12 +2809,10 @@ void function FieldPromotion_Promotion_OGPilot( entity player )
 	//waitthread PlayAnimTeleport( ogPilot, "OG_wilds_OG_final_words", scriptRef )
 
 	// take back the flightcore rockets
-	#if SERVER
 	foreach ( entity weapon in player.GetMainWeapons() )
 	{
 		player.TakeWeaponNow( weapon.GetClassName() )
 	}
-	#endif
 
 	//ogPilot.Destroy()
 	file.ogPilot = null
@@ -5619,7 +5716,8 @@ void function PilotLink_Dialog( entity player )
 
 
 	// otherwise the titan weapons are way too broken
-	SetConVarInt( "sp_difficulty", 0 )
+	//SetConVarInt( "sp_difficulty", 0 )
+	thread GiveEveryoneSMRs()
 
 	wait 1.0	// need to be timed so that it feels ok.
 
@@ -5665,7 +5763,6 @@ void function PilotLink_Dialog( entity player )
 	wait 3
 
 	// Pilot, enemy Titanfall detected..
-	SetConVarInt( "sp_difficulty", 2 )
 	waitthread PlayBTDialogue( "diag_sp_pilotLink_WD143a_07_01_mcor_bt" )
 	// We will have to fight our way to safety. Get ready
 	waitthread PlayBTDialogue( "diag_sp_pilotLink_WD143b_07_01_mcor_bt" )
